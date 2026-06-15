@@ -423,4 +423,168 @@ URL：https://xxx.up.railway.app/mcp?secret=mysecret123
 Claude 会自动调用 MCP tool 完成操作。
 
 
-*最后更新：2026-06-15*
+---
+
+## 补充一：致谢与参考资料
+
+本项目的协议逆向参考了社区前人的工作：
+- **吱吱 & Veille** 的 SVAKOM BLE 逆向记录，确认了 FFE0/FFE1 控制通道和 AE00/AE01 OTA 通道的区别
+- nRF Connect 社区的 BLE 抓包分析方法
+
+在他们的基础上，我们补充了：续命机制的发现和验证、双设备联动逻辑、以及完整的 AI 控制系统架构。
+
+---
+
+## 补充二：APK 获取方法
+
+jadx 逆向的前提是拿到 APK 文件，几种方法：
+
+**方法一：从自己手机导出（最安全）**
+1. 手机安装 SVAKOM 官方 App
+2. 用「MT管理器」或「ES文件浏览器」找到 App 的 APK 路径（通常在 `/data/app/` 下）
+3. 复制到电脑
+
+**方法二：APKPure / APKMirror**
+直接搜索「SVAKOM」下载，选和手机 App 相同的版本号。
+
+**注意**：下载来源要可信，不要用来路不明的 APK 安装到手机上，这里只用于反编译分析，不安装。
+
+---
+
+## 补充三：jadx 里具体怎么找命令定义
+
+打开 APK 之后，不是随便翻，按这个顺序找：
+
+1. 左边包结构里找 `com.svakom` 开头的包
+2. 搜索（Ctrl+F）关键词：`PROTOCOL_HEADER` 或 `0x55` 或 `CMD_`
+3. 找到后看同一个类里还有哪些常量——`CMD_SCALE`、`CMD_VIBRATE` 通常在同一个类里
+4. 看发送命令的方法，找类似 `sendCommand(byte[] data)` 的函数
+5. 追踪这个函数在哪里被调用，参数怎么构造——这就是完整的命令格式
+
+**tail 字节怎么确定的（0xAA vs 0x00）：**
+从 APK 里构造命令的代码直接读出来的。强度命令（CMD_SCALE）的构造代码最后一个字节写的是 `0xAA`，振动花样（CMD_VIBRATE）写的是 `0x00`。不同命令的 tail 可能不同，要逐一确认，不能统一用一个。
+
+---
+
+## 补充四：适配其他 SVAKOM 型号 / 其他品牌
+
+**如果你的设备不是 SL278H：**
+
+1. `bridge.py` 和 `scan.py` 里改扫描名字：
+```python
+# 把这行
+dev = next((d for d in devs if d.name and "SL278" in d.name), None)
+# 改成你的设备名（nRF Connect 扫描到的名字）
+dev = next((d for d in devs if d.name and "你的设备名" in d.name), None)
+用 scan.py 扫出你的设备的服务和特征，找到 write-without-response 的特征 UUID，替换 WRITE_UUID
+用 nRF Connect 手动发命令验证，再跑 test.py
+如果是完全不同品牌：
+
+协议格式可能完全不同，需要重新从 APK 逆向。但方法论一样：jadx 找命令构造 → nRF Connect 验证 → 脚本批量测试。
+
+补充五：Railway 完整部署教程
+第一步：准备代码
+
+Fork 本仓库，或者新建一个仓库，至少包含：
+
+bridge/index.js（主服务器）
+package.json（填入依赖）
+package.json 内容：
+
+{
+  "name": "svakom-bridge",
+  "type": "module",
+  "scripts": { "start": "node bridge/index.js" },
+  "dependencies": {
+    "express": "^4.18.0",
+    "ws": "^8.0.0"
+  }
+}
+第二步：Railway 部署
+
+注册 railway.app（GitHub 账号登录）
+New Project → Deploy from GitHub Repo → 选你的仓库
+Railway 会自动检测 package.json 并部署
+第三步：设置环境变量
+
+Railway 项目 → Variables → 添加：
+
+变量名	值	说明
+BRIDGE_SECRET	自己设，如 abc123xyz	保护接口不被乱调用
+第四步：拿到你的 Railway 地址
+
+部署成功后，Settings → Networking → Public Domain，格式类似：
+https://svakom-bridge-production.up.railway.app
+
+这就是你的 BRIDGE_URL。
+
+补充六：bridge.py 指向自己的 Railway
+有两种方式传入地址：
+
+方式一：环境变量（推荐）
+
+# Windows
+set BRIDGE_URL=https://你的railway地址.up.railway.app
+set BRIDGE_SECRET=你设的密码
+python bridge.py
+
+# Mac / Linux
+export BRIDGE_URL=https://你的railway地址.up.railway.app
+export BRIDGE_SECRET=你设的密码
+python3 bridge.py
+方式二：直接改代码
+
+打开 bridge.py，找到这行：
+
+BRIDGE_URL = os.environ.get("BRIDGE_URL", "").rstrip("/")
+改成：
+
+BRIDGE_URL = "https://你的railway地址.up.railway.app"
+补充七：toy.html 指向自己的 Railway
+toy.html 里有一个中继地址输入框，默认值是原作者的地址。
+
+打开 toy.html，找到这行：
+
+<input id="relay" value="/api/toy-relay" />
+方法一：页面上直接改（最简单）
+打开网页后，直接在「中继地址」输入框里把地址改成：
+
+https://你的railway地址.up.railway.app/toy-next
+然后点连接，不需要改代码。
+
+方法二：改默认值
+下载 toy.html，把 value="/api/toy-relay" 改成你的 Railway 地址，保存后用浏览器直接打开（不需要服务器）。
+
+补充八：怎么跟 AI 说话才会触发玩具控制
+使用 Claude.ai + MCP 方案时：
+
+添加 MCP Integration 后，新建对话，开头告诉 Claude：
+
+我有一个 SVAKOM 振动玩具通过蓝牙连接到了 MCP 工具里。
+你可以用 toy_set_speed、toy_set_pattern、toy_stop 来控制它。
+先用 toy_status 确认是否在线，然后我们开始。
+之后正常聊天，你可以直接说：
+
+「开到50%」
+「换个花样试试」
+「停一下」
+Claude 会自己判断什么时候调用工具。
+
+使用自己搭的 PWA 方案时：
+
+系统会自动告知 AI 玩具已连接，不需要额外提示。开始时只需要告诉 AI 开了哪个设备：
+
+「只开了吮吸款」
+「两个都开了」
+补充九：BLE 距离的实测方法
+理论上 BLE 有效距离是 10 米，但实际受墙壁、干扰影响很大。
+
+自测方法：
+
+运行 bridge.py，连上设备后保持续命
+手持电脑（或手机）慢慢远离设备
+观察黑色窗口——出现「写入失败」或续命报错就是超距了
+记下大概距离
+我们实测结论：同一房间内无遮挡约 3-4 米开始不稳定，有墙壁更短。所以推荐手机放床边做中继，距离控制在 1 米内。
+
+最后更新：2026-06-15
