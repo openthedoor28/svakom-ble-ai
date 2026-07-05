@@ -86,5 +86,10 @@ app.post("/mcp/message", (req, res) => {
 
   res.json({ jsonrpc: "2.0", id, result: {} });
 });
-
+app.get("/.well-known/oauth-protected-resource", (req, res) => {
+  res.json({
+    resource: `https://${req.headers.host}`,
+    authorization_servers: []
+  });
+});
 app.listen(PORT, () => console.log(`Bridge running on ${PORT}`));
