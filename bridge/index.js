@@ -4,7 +4,7 @@ const app = express();
 app.use(express.json());
 
 const SECRET = process.env.BRIDGE_SECRET || "changeme";
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 let queue = [];
 let lastSeen = null;
