@@ -13,9 +13,8 @@ app.get("/toy-next", (req, res) => {
   const secret = req.query.secret || req.headers["x-bridge-secret"] || req.headers["x-secret"];
 if (secret !== SECRET) return res.status(403).json({ error: "forbidden" });
   lastSeen = Date.now();
-  const cmd = queue.shift();
-  const cmd = queue.shift();
-res.json(cmd || {});
+  const nextCmd = queue.shift();
+res.json(nextCmd || {});
 });
 
 app.post("/toy", (req, res) => {
