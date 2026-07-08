@@ -32,8 +32,6 @@ app.get("/.well-known/oauth-protected-resource", (req, res) => {
 });
 
 app.post("/mcp", (req, res) => {
-  const secret = req.query.secret || req.headers["x-secret"];
-  if (secret !== SECRET) return res.status(403).json({ error: "forbidden" });
   const { method, params, id } = req.body;
   const reply = (result) => res.json({ jsonrpc: "2.0", id, result });
   if (method === "initialize") {
