@@ -14,7 +14,8 @@ app.get("/toy-next", (req, res) => {
 if (secret !== SECRET) return res.status(403).json({ error: "forbidden" });
   lastSeen = Date.now();
   const cmd = queue.shift();
-  res.json({ cmd: cmd || null });
+  const cmd = queue.shift();
+res.json(cmd || {});
 });
 
 app.post("/toy", (req, res) => {
