@@ -10,7 +10,8 @@ let queue = [];
 let lastSeen = null;
 
 app.get("/toy-next", (req, res) => {
-  if (req.query.secret !== SECRET) return res.status(403).json({ error: "forbidden" });
+  const secret = req.query.secret || req.headers["x-bridge-secret"] || req.headers["x-secret"];
+if (secret !== SECRET) return res.status(403).json({ error: "forbidden" });
   lastSeen = Date.now();
   const cmd = queue.shift();
   res.json({ cmd: cmd || null });
